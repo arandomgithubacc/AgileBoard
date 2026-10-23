@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { io } from 'socket.io-client';
 import axios from 'axios';
@@ -72,6 +72,8 @@ export default function App() {
   const [priorityFilter, setPriorityFilter] = useState<Task['priority'] | ''>('');
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Array<{ userId: string; username: string; avatar?: string }>>([]);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Form Task State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -95,6 +97,19 @@ export default function App() {
     role: 'user' as 'user' | 'admin',
   });
   const [profileForm, setProfileForm] = useState({ username: '', avatar: '' });
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    setToast({ message, type });
+    toastTimeout.current = setTimeout(() => {
+      setToast(null);
+      toastTimeout.current = null;
+    }, 3000);
+  };
+
+  useEffect(() => () => {
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+  }, []);
 
   // Fetch Data & Socket Setup
   useEffect(() => {
@@ -187,7 +202,7 @@ export default function App() {
     const userId = currentUser?._id || (currentUser as any)?.id;
 
     if (!userId) {
-      alert('Không tìm thấy thông tin ID người dùng! Vui lòng đăng xuất và đăng nhập lại.');
+      showToast('Không tìm thấy ID người dùng. Vui lòng đăng xuất và đăng nhập lại.', 'error');
       return;
     }
 
@@ -203,10 +218,10 @@ export default function App() {
       setAllUsers(prev => prev.map(u => (u._id === updated._id || (u as any).id === updated._id) ? updated : u));
 
       setIsProfileModalOpen(false);
-      alert('Cập nhật thông tin thành công!');
+      showToast('Cập nhật thông tin cá nhân thành công.', 'success');
     } catch (err: any) {
       console.error('Lỗi chi tiết:', err);
-      alert(err.response?.data?.message || 'Lỗi cập nhật profile');
+      showToast(err.response?.data?.message || 'Lỗi cập nhật profile.', 'error');
     }
   };
   
@@ -260,8 +275,10 @@ export default function App() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
       });
       setAllUsers(prev => prev.filter(existing => existing._id !== user._id));
+      showToast(`Đã xóa người dùng "${user.username}".`, 'success');
     } catch (err: any) {
       setUsersError(err.response?.data?.message || 'Lỗi xóa người dùng');
+      showToast(err.response?.data?.message || 'Lỗi xóa người dùng.', 'error');
     }
   };
 
@@ -297,8 +314,10 @@ export default function App() {
       setAllUsers(prev => [...prev, res.data]);
       setNewUserForm({ username: '', email: '', password: '', role: 'user' });
       setIsCreateUserOpen(false);
+      showToast(`Đã thêm người dùng "${res.data.username}".`, 'success');
     } catch (err: any) {
       setUsersError(err.response?.data?.message || 'Lỗi tạo người dùng');
+      showToast(err.response?.data?.message || 'Lỗi tạo người dùng.', 'error');
     } finally {
       setIsCreatingUser(false);
     }
@@ -328,8 +347,10 @@ export default function App() {
       setNewTaskPriority('');
       setNewTaskDeadline('');
       setNewTaskAssignee('');
+      showToast('Thêm task mới thành công.', 'success');
     } catch (err) {
       console.error(err);
+      showToast('Không thể thêm task. Vui lòng thử lại.', 'error');
     }
   };
 
@@ -376,8 +397,10 @@ export default function App() {
       setTasks(prev => prev.filter(t => t._id !== taskId));
       socket.emit('task_deleted_event', { projectId: PROJECT_ID, taskId });
       setEditingTask(null);
+      showToast('Xóa task thành công.', 'success');
     } catch (err) {
       console.error(err);
+      showToast('Không thể xóa task. Vui lòng thử lại.', 'error');
     }
   };
 
@@ -959,6 +982,25 @@ export default function App() {
             </form>
           </div>
         </div>
+      )}
+      {toast && (
+        <>
+          <style>{'@keyframes toast-enter { from { opacity: 0; transform: translateY(0.5rem); } to { opacity: 1; transform: translateY(0); } }'}</style>
+          <div
+            role={toast.type === 'error' ? 'alert' : 'status'}
+            aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+            className={`fixed bottom-5 right-5 z-[60] max-w-sm rounded-lg border px-4 py-3 text-sm font-medium shadow-lg ${
+              toast.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : toast.type === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-800'
+                  : 'border-sky-200 bg-sky-50 text-sky-800'
+            }`}
+            style={{ animation: 'toast-enter 200ms ease-out' }}
+          >
+            {toast.message}
+          </div>
+        </>
       )}
     </div>
   );
