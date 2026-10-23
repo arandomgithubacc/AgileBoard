@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/User';
 
 // Đăng ký tài khoản
@@ -19,6 +20,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       username,
       email,
       password: hashedPassword,
+      role: username === 'administrator1' ? 'admin' : 'user',
     });
 
     res.status(201).json({ message: 'Tạo tài khoản thành công!', userId: newUser._id });
@@ -45,12 +47,21 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = jwt.sign(
-      { userId: user._id, username: user.username },
+      { userId: user._id.toString(), username: user.username, role: user.role },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '7d' }
     );
 
-    res.json({ token, user: { id: user._id, username: user.username, email: user.email } });
+    res.json({
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
@@ -59,10 +70,40 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 // Lấy danh sách tất cả Users (để chọn Assignee)
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
-    const users = await User.find({}, '_id username email avatar');
+    const users = await User.find({}, '_id username email avatar role');
     res.json(users);
   } catch (error: any) {
     res.status(500).json({ message: 'Lỗi lấy danh sách user' });
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+  const id = req.params.id;
+  if (typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400).json({ message: 'User ID không hợp lệ' });
+    return;
+  }
+
+  if (res.locals.authUserId === id) {
+    res.status(403).json({ message: 'Admin không thể tự xóa tài khoản của mình' });
+    return;
+  }
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      return;
+    }
+    if (user.role === 'admin') {
+      res.status(403).json({ message: 'Không thể xóa tài khoản admin' });
+      return;
+    }
+
+    await user.deleteOne();
+    res.json({ message: 'Xóa người dùng thành công' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Lỗi xóa người dùng', error: error.message });
   }
 };
 

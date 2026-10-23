@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { io } from 'socket.io-client';
 import axios from 'axios';
-import { Plus, LogOut, Trash2, Edit3, X, AlertCircle, Settings } from 'lucide-react';
+import { Plus, LogOut, Trash2, Edit3, X, AlertCircle, Settings, Users } from 'lucide-react';
 
 const socket = io('http://localhost:5000');
 const PROJECT_ID = '65f1234567890123456789ab';
@@ -12,6 +12,7 @@ interface UserType {
   username: string;
   email: string;
   avatar?: string;
+  role: 'user' | 'admin';
 }
 
 interface Task {
@@ -80,6 +81,9 @@ export default function App() {
   // Modals State
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState('');
   const [profileForm, setProfileForm] = useState({ username: '', avatar: '' });
 
   // Fetch Data & Socket Setup
@@ -208,6 +212,7 @@ export default function App() {
         alert('Đăng ký thành công! Hãy đăng nhập.');
         setIsRegisterMode(false);
       } else {
+        localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
         setCurrentUser(res.data.user);
       }
@@ -218,7 +223,36 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     setCurrentUser(null);
+  };
+
+  const handleOpenUsers = async () => {
+    setIsUsersModalOpen(true);
+    setIsUsersLoading(true);
+    setUsersError('');
+    try {
+      const res = await axios.get('http://localhost:5000/api/users');
+      setAllUsers(res.data);
+    } catch (err: any) {
+      setUsersError(err.response?.data?.message || 'Lỗi lấy danh sách người dùng');
+    } finally {
+      setIsUsersLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (user: UserType) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa tài khoản "${user.username}"?`)) return;
+
+    setUsersError('');
+    try {
+      await axios.delete(`http://localhost:5000/api/users/${user._id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      });
+      setAllUsers(prev => prev.filter(existing => existing._id !== user._id));
+    } catch (err: any) {
+      setUsersError(err.response?.data?.message || 'Lỗi xóa người dùng');
+    }
   };
 
   // Tạo Task
@@ -394,9 +428,19 @@ export default function App() {
           </div>
         </div>
 
-        <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-600 rounded-lg cursor-pointer transition-colors" title="Đăng xuất">
-          <LogOut size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          {currentUser.role === 'admin' && (
+            <button
+              onClick={handleOpenUsers}
+              className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-sm font-medium cursor-pointer transition-colors"
+            >
+              <Users size={16} /> Quản lý Users
+            </button>
+          )}
+          <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-600 rounded-lg cursor-pointer transition-colors" title="Đăng xuất">
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Form Tạo Task */}
@@ -532,6 +576,52 @@ export default function App() {
           })}
         </div>
       </DragDropContext>
+
+      {isUsersModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 relative">
+            <button
+              type="button"
+              onClick={() => setIsUsersModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </button>
+            <h3 className="text-lg font-bold mb-4 text-slate-800">Quản lý Users</h3>
+            {usersError && <p className="text-sm text-red-600 mb-3">{usersError}</p>}
+            {isUsersLoading ? (
+              <p className="text-sm text-slate-500">Đang tải danh sách...</p>
+            ) : (
+              <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                {allUsers.map(user => (
+                  <div key={user._id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-slate-800 truncate">{user.username}</p>
+                      <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className={`text-xs font-medium ${user.role === 'admin' ? 'text-purple-700' : 'text-slate-500'}`}>
+                        {user.role === 'admin' ? 'Admin' : 'User'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUser(user)}
+                        disabled={user.role === 'admin' || user._id === currentUser._id}
+                        className="flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        title={user.role === 'admin' ? 'Không thể xóa admin' : undefined}
+                      >
+                        <Trash2 size={13} /> Xóa
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {allUsers.length === 0 && <p className="py-4 text-center text-sm text-slate-500">Chưa có người dùng nào.</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* MODAL CẬP NHẬT PROFILE */}
       {isProfileModalOpen && (

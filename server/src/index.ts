@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import User from './models/User';
 import authRoutes from './routes/authRoutes';
 import taskRoutes from './routes/taskRoutes';
+import userRoutes from './routes/userRoutes';
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.use(express.json());
 // Routes API
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/users', userRoutes);
 
 // Socket.io Real-time Event
 io.on('connection', (socket) => {
@@ -105,17 +107,6 @@ io.on('connection', (socket) => {
       io.to(user.projectId).emit('online_users_updated', projectOnlineUsers);
     }
   });
-});
-
-// 1. API lấy tất cả user đã đăng ký trong hệ thống
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await User.find({}, '_id username email avatar');
-    res.json(users);
-  } catch (error) {
-    console.error('Lỗi API GET /api/users:', error);
-    res.status(500).json({ message: 'Lỗi lấy danh sách user' });
-  }
 });
 
 // 2. API cập nhật thông tin cá nhân (Tên & Avatar Base64)
