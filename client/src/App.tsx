@@ -84,6 +84,14 @@ export default function App() {
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isUsersLoading, setIsUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    role: 'user' as 'user' | 'admin',
+  });
   const [profileForm, setProfileForm] = useState({ username: '', avatar: '' });
 
   // Fetch Data & Socket Setup
@@ -252,6 +260,45 @@ export default function App() {
       setAllUsers(prev => prev.filter(existing => existing._id !== user._id));
     } catch (err: any) {
       setUsersError(err.response?.data?.message || 'Lỗi xóa người dùng');
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUsersError('');
+
+    if (
+      !newUserForm.username.trim() ||
+      !newUserForm.email.trim() ||
+      !newUserForm.password
+    ) {
+      setUsersError('Vui lòng nhập đầy đủ tên đăng nhập, email và mật khẩu.');
+      return;
+    }
+
+    if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.com$/i.test(newUserForm.email.trim())) {
+      setUsersError('Email phải có định dạng xxx@yyy.com.');
+      return;
+    }
+
+    setIsCreatingUser(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUsersError('Phiên đăng nhập không có token. Vui lòng đăng xuất rồi đăng nhập lại.');
+        return;
+      }
+
+      const res = await axios.post('http://localhost:5000/api/users', newUserForm, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAllUsers(prev => [...prev, res.data]);
+      setNewUserForm({ username: '', email: '', password: '', role: 'user' });
+      setIsCreateUserOpen(false);
+    } catch (err: any) {
+      setUsersError(err.response?.data?.message || 'Lỗi tạo người dùng');
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -590,6 +637,72 @@ export default function App() {
             </button>
             <h3 className="text-lg font-bold mb-4 text-slate-800">Quản lý Users</h3>
             {usersError && <p className="text-sm text-red-600 mb-3">{usersError}</p>}
+            {!isCreateUserOpen ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setUsersError('');
+                  setIsCreateUserOpen(true);
+                }}
+                className="mb-4 flex items-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 cursor-pointer"
+              >
+                <Plus size={16} /> Thêm User mới
+              </button>
+            ) : (
+              <form onSubmit={handleCreateUser} className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Tên đăng nhập"
+                  required
+                  minLength={3}
+                  value={newUserForm.username}
+                  onChange={e => setNewUserForm(prev => ({ ...prev, username: e.target.value }))}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  required
+                  minLength={6}
+                  value={newUserForm.email}
+                  onChange={e => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <input
+                  type="password"
+                  placeholder="Mật khẩu"
+                  required
+                  minLength={8}
+                  value={newUserForm.password}
+                  onChange={e => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <select
+                  value={newUserForm.role}
+                  onChange={e => setNewUserForm(prev => ({ ...prev, role: e.target.value as 'user' | 'admin' }))}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <div className="flex justify-end gap-2 sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateUserOpen(false)}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-white cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingUser}
+                    className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isCreatingUser ? 'Đang tạo...' : 'Xác nhận'}
+                  </button>
+                </div>
+              </form>
+            )}
             {isUsersLoading ? (
               <p className="text-sm text-slate-500">Đang tải danh sách...</p>
             ) : (

