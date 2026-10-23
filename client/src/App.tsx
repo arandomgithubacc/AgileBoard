@@ -70,6 +70,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<Task['priority'] | ''>('');
+  const [activeTab, setActiveTab] = useState<'kanban' | 'online'>('kanban');
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Array<{ userId: string; username: string; avatar?: string }>>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -479,57 +480,81 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6">
-      {/* Header */}
-      <header className="max-w-6xl mx-auto mb-6 bg-white p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <UserAvatar username={currentUser.username} avatar={currentUser.avatar} size="w-10 h-10 text-base" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">AgileBoard Real-time</h1>
-            <p className="text-xs text-slate-500 flex items-center gap-1">
-              Xin chào, <strong className="text-purple-600">{currentUser.username}</strong>
-              <button 
-                onClick={() => {
-                  setProfileForm({ username: currentUser.username, avatar: currentUser.avatar || '' });
-                  setIsProfileModalOpen(true);
-                }}
-                className="text-slate-400 hover:text-purple-600 ml-1 p-0.5 cursor-pointer"
-                title="Cập nhật Profile"
-              >
-                <Settings size={14} />
-              </button>
-            </p>
+    <div className="min-h-screen bg-slate-100 px-4 pb-6 pt-32 sm:pt-24">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-xl">🚀</div>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">AgileBoard</h1>
+              <p className="truncate text-xs text-slate-500">Real-time project workspace</p>
+            </div>
           </div>
-        </div>
 
-        {/* Users Online List */}
-        <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
-          <span className="text-xs font-semibold text-slate-500">Online ({onlineUsers.length}):</span>
-          <div className="flex -space-x-2">
-            {onlineUsers.map((u, i) => (
-              <div key={i} className="relative group" title={`${u.username} (Online)`}>
-                <UserAvatar username={u.username} avatar={u.avatar} size="w-8 h-8 text-xs" />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {currentUser.role === 'admin' && (
+          <nav aria-label="Điều hướng chính" className="order-3 flex w-full items-center justify-center gap-1 sm:order-none sm:w-auto">
             <button
-              onClick={handleOpenUsers}
-              className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-sm font-medium cursor-pointer transition-colors"
+              type="button"
+              onClick={() => setActiveTab('kanban')}
+              aria-current={activeTab === 'kanban' ? 'page' : undefined}
+              className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
+                activeTab === 'kanban'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+              }`}
             >
-              <Users size={16} /> Quản lý Users
+              📊 Bảng Kanban
             </button>
-          )}
-          <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-600 rounded-lg cursor-pointer transition-colors" title="Đăng xuất">
-            <LogOut size={20} />
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('online')}
+              aria-current={activeTab === 'online' ? 'page' : undefined}
+              className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
+                activeTab === 'online'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+              }`}
+            >
+              👥 Thành viên Online
+              <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">{onlineUsers.length}</span>
+            </button>
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2 sm:ml-0">
+            <button
+              type="button"
+              onClick={() => {
+                setProfileForm({ username: currentUser.username, avatar: currentUser.avatar || '' });
+                setIsProfileModalOpen(true);
+              }}
+              className="flex min-w-0 items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-slate-100"
+              title="Cập nhật Profile"
+            >
+              <UserAvatar username={currentUser.username} avatar={currentUser.avatar} size="w-9 h-9 text-sm" />
+              <span className="hidden max-w-28 truncate text-sm font-semibold text-slate-700 md:block">{currentUser.username}</span>
+              <Settings size={14} className="hidden text-slate-400 sm:block" />
+            </button>
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={handleOpenUsers}
+                className="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 transition-colors hover:bg-purple-100 sm:text-sm"
+              >
+                <Users size={16} /> <span className="hidden sm:inline">Quản lý Users</span>
+              </button>
+            )}
+            <button
+              onClick={handleLogout}
+              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Đăng xuất"
+              aria-label="Đăng xuất"
+            >
+              <LogOut size={19} />
+            </button>
+          </div>
         </div>
       </header>
 
+      {activeTab === 'kanban' ? (
+        <>
       {/* Form Tạo Task */}
       <div className="max-w-6xl mx-auto mb-8 bg-white p-4 rounded-xl shadow-sm border border-slate-200/60">
         <form onSubmit={handleCreateTask} className="space-y-3">
@@ -731,6 +756,40 @@ export default function App() {
           })}
         </div>
       </DragDropContext>
+        </>
+      ) : (
+        <section aria-label="Thành viên đang online" className="mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Thành viên Online</h2>
+              <p className="mt-1 text-sm text-slate-500">Các thành viên hiện đang kết nối với AgileBoard.</p>
+            </div>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-700">{onlineUsers.length} online</span>
+          </div>
+          {onlineUsers.length > 0 ? (
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {onlineUsers.map(user => (
+                <li key={user.userId} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:border-emerald-200 hover:bg-emerald-50/50">
+                  <div className="relative">
+                    <UserAvatar username={user.username} avatar={user.avatar} size="w-11 h-11 text-sm" />
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-800">{user.username}</p>
+                    <p className="mt-0.5 text-xs font-medium text-emerald-600">Đang hoạt động</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-12 text-center">
+              <Users size={28} className="mx-auto mb-3 text-slate-300" />
+              <p className="text-sm font-medium text-slate-600">Hiện chưa có thành viên nào online.</p>
+              <p className="mt-1 text-xs text-slate-400">Danh sách sẽ tự cập nhật khi có người kết nối.</p>
+            </div>
+          )}
+        </section>
+      )}
 
       {isUsersModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
