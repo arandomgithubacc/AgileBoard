@@ -438,6 +438,12 @@ export default function App() {
     );
   }
 
+  const total = tasks.length;
+  const todoCount = tasks.filter(task => task.status === 'todo').length;
+  const inProgressCount = tasks.filter(task => task.status === 'in-progress').length;
+  const doneCount = tasks.filter(task => task.status === 'done').length;
+  const completionRate = Math.round((doneCount / total) * 100) || 0;
+
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       {/* Header */}
@@ -550,6 +556,48 @@ export default function App() {
           </div>
         </form>
       </div>
+
+      {/* Agile Progress */}
+      <section
+        aria-label="Thống kê tiến độ công việc"
+        className="max-w-6xl mx-auto mb-6 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm"
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-800">Agile Progress</h2>
+          <span className="text-sm font-bold text-emerald-700">{completionRate}% hoàn thành</span>
+        </div>
+        <div
+          role="progressbar"
+          aria-label="Tỷ lệ hoàn thành"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={completionRate}
+          className="mb-4 h-2.5 overflow-hidden rounded-full bg-emerald-100"
+        >
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+            style={{ width: `${completionRate}%` }}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+            <span className="text-xs font-medium text-slate-600">Tổng task</span>
+            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700">{total}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-sky-50 px-3 py-2">
+            <span className="text-xs font-medium text-sky-700">To Do</span>
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-700">{todoCount}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
+            <span className="text-xs font-medium text-amber-700">In Progress</span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">{inProgressCount}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+            <span className="text-xs font-medium text-emerald-700">Done</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">{doneCount}</span>
+          </div>
+        </div>
+      </section>
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={onDragEnd}>
