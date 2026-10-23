@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { io } from 'socket.io-client';
 import axios from 'axios';
-import { Plus, LogOut, Trash2, Edit3, X, AlertCircle, Settings, Users } from 'lucide-react';
+import { Plus, LogOut, Trash2, Edit3, X, AlertCircle, Settings, Users, Search } from 'lucide-react';
 
 const socket = io('http://localhost:5000');
 const PROJECT_ID = '65f1234567890123456789ab';
@@ -68,6 +68,8 @@ export default function App() {
 
   // App States
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<Task['priority'] | ''>('');
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Array<{ userId: string; username: string; avatar?: string }>>([]);
 
@@ -443,6 +445,15 @@ export default function App() {
   const inProgressCount = tasks.filter(task => task.status === 'in-progress').length;
   const doneCount = tasks.filter(task => task.status === 'done').length;
   const completionRate = Math.round((doneCount / total) * 100) || 0;
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = !normalizedSearchTerm
+      || task.title.toLowerCase().includes(normalizedSearchTerm)
+      || task.description?.toLowerCase().includes(normalizedSearchTerm);
+    const matchesPriority = !priorityFilter || task.priority === priorityFilter;
+
+    return matchesSearch && matchesPriority;
+  });
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
@@ -599,11 +610,37 @@ export default function App() {
         </div>
       </section>
 
+      {/* Tìm kiếm và lọc Task */}
+      <div className="max-w-6xl mx-auto mb-4 flex flex-col gap-3 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm sm:flex-row">
+        <label className="relative flex-1">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Tìm theo tên hoặc mô tả task..."
+            aria-label="Tìm theo tên hoặc mô tả task"
+            className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </label>
+        <select
+          value={priorityFilter}
+          onChange={e => setPriorityFilter(e.target.value as Task['priority'] | '')}
+          aria-label="Lọc theo mức độ ưu tiên"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 sm:w-48"
+        >
+          <option value="">Tất cả mức độ</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+
       {/* Kanban Board */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
           {COLUMNS.map(col => {
-            const colTasks = tasks.filter(t => t.status === col.id);
+            const colTasks = filteredTasks.filter(t => t.status === col.id);
 
             return (
               <div key={col.id} className="bg-slate-200/70 p-4 rounded-xl flex flex-col min-h-[500px]">
